@@ -28,41 +28,39 @@ static int telfd = -1;
 int teldebug = 0;
 
 static int
-opensocket(char *host, int portno)
+dial(char *host, int port)
 {
-	struct in_addr **addr_list;
-	struct hostent *he;
-	char *ip;
-	int i;
-	struct sockaddr_in addr;
-	int fd;
+	char portstr[32];
+	int sockfd;
+	struct addrinfo *result, *rp, hints;
 
-	fd = socket(AF_INET, SOCK_STREAM, 0);
-	if(fd < 0){
-		fprintf(stderr, "can't open socket\n");
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+
+	snprintf(portstr, 32, "%d", port);
+	if(getaddrinfo(host, portstr, &hints, &result)){
+		perror("error: getaddrinfo");
 		return -1;
 	}
-	he = gethostbyname(host);
-	if(he == nil){
-		fprintf(stderr, "can't resolve %s\n", host);
-		return -1;
+
+	for(rp = result; rp; rp = rp->ai_next){
+		sockfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+		if(sockfd < 0)
+			continue;
+		if(connect(sockfd, rp->ai_addr, rp->ai_addrlen) >= 0)
+			goto win;
+		close(sockfd);
 	}
-	addr_list = (struct in_addr**)he->h_addr_list;
-	for(i = 0; addr_list[i]; i++){
-		ip = inet_ntoa(*addr_list[i]);
-		break;
-	}
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = inet_addr(ip);
-	addr.sin_port = htons(portno);
-	if(connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0){
-		printf("can't connect\n");
-		close(fd);
-		return -1;
-	}
-	return fd;
+	freeaddrinfo(result);
+	perror("error");
+	return -1;
+
+win:
+	freeaddrinfo(result);
+	return sockfd;
 }
+
 
 static int
 hasinput(int fd)
@@ -145,7 +143,7 @@ cmd(uchar a, uchar b)
 int
 telnetinit(char *host, int port)
 {
-	telfd = opensocket(host, port);
+	telfd = dial(host, port);
 	if(telfd < 0)
 		return 1;
 	cmd(WILL, XMITBIN);
