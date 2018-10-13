@@ -192,18 +192,32 @@ redraw(void)
 	u32int *q;
 	ushort inv;
 	int i, n;
+	int first, last;
+	SDL_Rect r;
 
 	p = ram + daddr/2;
 	q = pixels;
 	inv = invert ? ~0 : 0;
-	n = SX*SY/16;
+
+	r.x = updated.min.x;
+	r.y = updated.min.y;
+	r.w = updated.max.x - updated.min.x;
+	r.h = updated.max.y - updated.min.y;
+	if(r.w <= 0 || r.h <= 0)
+		return;
+	first = (updated.min.x + updated.min.y*SX)/16;
+	last = (updated.max.x-1 + (updated.max.y-1)*SX + 15)/16;
+	p += first;
+	q += first*16;
+	n = last - first;
 	while(n--){
 		for(i = 0; i < 16; i++)
 			*q++ = (*p^inv) & 1<<(15-i) ? fg : bg;
 		p++;
 	}
 
-	SDL_UpdateTexture(screen, nil, pixels, SX*4);
+	SDL_UpdateTexture(screen, &r, pixels, SX*4);
+	updated = Rect(0, 0, 0, 0);
 
 	SDL_RenderCopy(renderer, screen, nil, nil);
 	SDL_RenderPresent(renderer);

@@ -149,7 +149,7 @@ memwrite(u32int a, u16int v, u16int m)
 
 	a &= 0x3fffff;
 	if(a < 0x40000){
-		if(a >= daddr){
+		if(a >= daddr && a < daddr+SX*SY/8){
 			y = (a - daddr) / 100;
 			x = (((a & ~1) - daddr) % 100) * 8;
 			if(updated.min.x > x) updated.min.x = x;
